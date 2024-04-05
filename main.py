@@ -2,7 +2,6 @@ import requests
 import sys
 import init_headers
 import re
-# import ipdb
 import auth_file_project
 
 
@@ -73,8 +72,6 @@ def main():
         )
         request_resp.raise_for_status()
         json_commentaires = request_resp.json()
-
-        ipdb.set_trace()
 
         nb_commentaires += json_commentaires['data']['dist']
         next_page = json_commentaires['data']['after']
