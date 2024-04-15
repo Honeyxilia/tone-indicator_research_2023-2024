@@ -18,7 +18,7 @@ def get_ti_info_about_user(username, headers, params):
 
     ti_count.update(ti_values.ti_count)
 
-    match_ti = "/(" + "|".join(ti_values.ti_count.keys()) + ")($| )"
+    match_ti = "/(" + "|".join(ti_values.ti_count.keys()) + ")($| |\.|,)"
 
     output_sheet = [
         [
@@ -36,7 +36,7 @@ def get_ti_info_about_user(username, headers, params):
             f"https://oauth.reddit.com/user/{username}/submitted",
             headers=headers,
             params=params,
-            timeout=10
+            timeout=10,
         )
         request_resp.raise_for_status()
         json_sujets = request_resp.json()
@@ -61,7 +61,7 @@ def get_ti_info_about_user(username, headers, params):
                             ti[0],
                             sujet['data']['created'],
                             sujet['data']['subreddit_name_prefixed'],
-                            "(in title)",
+                            sujet['data']['title'],
                             f"https://www.reddit.com{sujet['data']['permalink']}",
                         ]
                     )
@@ -88,7 +88,8 @@ def get_ti_info_about_user(username, headers, params):
                     )
 
         if next_page is None:
-            params.pop('after')
+            if "after" in params:
+                params.pop('after')
             break
         params['after'] = next_page
 
@@ -98,7 +99,7 @@ def get_ti_info_about_user(username, headers, params):
             f"https://oauth.reddit.com/user/{username}/comments",
             headers=headers,
             params=params,
-            timeout=10
+            timeout=10,
         )
         request_resp.raise_for_status()
         json_commentaires = request_resp.json()
@@ -112,6 +113,7 @@ def get_ti_info_about_user(username, headers, params):
                 commentaire['data']["body"]
             )
             if ti_found:
+                print(ti_found)
                 ti_count["Total number of comments w/ tone indicators"] += 1
                 for ti in ti_found:
                     ti_count["Total number of tone indicators"] += 1
@@ -128,7 +130,8 @@ def get_ti_info_about_user(username, headers, params):
                     )
 
         if next_page is None:
-            params.pop('after')
+            if "after" in params:
+                params.pop('after')
             break
         params['after'] = next_page
 
@@ -210,7 +213,9 @@ def main():
         print(f"Total number of tone indicators: {output_ti[5]}")
 
         for i in range(6, len(output_ti)):
-            print(f"Comments with {output_sheets['General statistics'][0][i]} : {output_sheets['General statistics'][1][i]}")
+            print(
+                f"Comments with /{output_sheets['General statistics'][0][i]} : {output_ti[i]}"
+            )
 
     pyexcel.Book(output_sheets).save_as("ti_stats.xlsx")
 
