@@ -1,4 +1,6 @@
 import re
+import sys
+import ipdb
 import requests
 import pyexcel
 import auth_file_project
@@ -6,54 +8,17 @@ import ti_values
 
 
 def get_ti_info_about_user(username, headers, params):
-    nb_commentaires = 0
-    nb_commentaires_w_ti = 0
-
     ti_count = {
-        'genq': 0,
-        'gen': 0,
-        'g': 0,
-        'npa': 0,
-        'nsrs': 0,
-        'srs': 0,
-        'j': 0,
-        'hj': 0,
-        'pos': 0,
-        'pc': 0,
-        'neu': 0,
-        'neg': 0,
-        'nc': 0,
-        'ly': 0,
-        'lh': 0,
-        'nm': 0,
-        'lu': 0,
-        'nbh': 0,
-        'nsb': 0,
-        'sx': 0,
-        'x': 0,
-        'nsx': 0,
-        'nx': 0,
-        'rh': 0,
-        'rt': 0,
-        'ij': 0,
-        'm': 0,
-        'li': 0,
-        'hyp': 0,
-        'f': 0,
-        'th': 0,
-        't': 0,
-        'cb': 0,
-        'q': 0,
-        'ay': 0,
-        'nay': 0,
-        'p': 0,
-        'r': 0,
-        'c': 0,
-        'l': 0,
-        's': 0,
+        "Total number of comments": 0,
+        "Total number of comments w/ tone indicators": 0,
+        "Total number of tone indicators": 0,
     }
 
-    match_ti = "/(" + "|".join(ti_count.keys()) + ")($| )"
+    ti_count.update(ti_values.ti_count)
+
+    print(ti_count.keys())
+
+    match_ti = "/(" + "|".join(ti_values.ti_count.keys()) + ")($| )"
 
     output_sheet = [
         [
@@ -75,7 +40,7 @@ def get_ti_info_about_user(username, headers, params):
         request_resp.raise_for_status()
         json_commentaires = request_resp.json()
 
-        nb_commentaires += json_commentaires['data']['dist']
+        ti_count["Total number of comments"] += json_commentaires['data']['dist']
         next_page = json_commentaires['data']['after']
 
         for commentaire in json_commentaires['data']['children']:
@@ -84,8 +49,9 @@ def get_ti_info_about_user(username, headers, params):
                 commentaire['data']["body"]
             )
             if ti_found:
-                nb_commentaires_w_ti += 1
+                ti_count["Total number of comments w/ tone indicators"] += 1
                 for ti in ti_found:
+                    ti_count["Total number of tone indicators"] += 1
                     ti_count[ti[0]] += 1
 
                     output_sheet.append(
@@ -102,20 +68,16 @@ def get_ti_info_about_user(username, headers, params):
             break
         params['after'] = next_page
 
-    output_ti = [
-        ["Total number of comments", nb_commentaires],
-        ["Total number of comments w/ tone indicators", nb_commentaires_w_ti],
-        ["Total number of tone indicators", sum(ti_count.values())],
-    ]
+    output_ti = [username]
+    output_ti += list(ti_count.values())
 
-    for ti in ti_values.ti_count.items():
-        output_ti.append(
-            [ti[0], ti_count[ti[0]]]
-        )
+    print(output_ti)
 
     return output_sheet, output_ti
 
+
 def main():
+    # Authentication
     base_url = "https://www.reddit.com/"
 
     headers = {'User-Agent': 'M2_tone-indicators_research/1.0'}
@@ -158,22 +120,34 @@ def main():
 
     print(f"user u/{username} found : collecting comments...")
 
-    output_sheet, output_ti = get_ti_info_about_user(username, headers, params)
-
-    print(f"Searched tone indicators : {' '.join(ti_values.ti_count.keys())}")
-    print(f"Total number of comments : {output_ti[0][1]}")
-    print(f"Total number of comments w/ tone indicators: {output_ti[1][1]}")
-    print(f"Total number of tone indicators: {output_ti[2][1]}")
-
-    for ti_entry in output_ti[2:]:
-        print(f"Comments with {ti_entry[0]} : {ti_entry[1]}")
-
     output_sheets = {
-        "General statistics": output_ti,
-        username: output_sheet,
+        "General statistics":
+            [
+                [
+                    "Username",
+                    "Total number of scouted comments",
+                    "Number of comments w/ tone indicators",
+                    "Number of tone indicators",
+                ]
+            ],
     }
 
-    pyexcel.Book(output_sheets).save_as(f"{username}_ti_stats.xls")
+    output_sheets["General statistics"][0] += list(ti_values.ti_count.keys())
+
+    output_sheet, output_ti = get_ti_info_about_user(username, headers, params)
+
+    output_sheets["General statistics"].append(output_ti)
+    output_sheets[username] = output_sheet
+
+    print(f"Searched tone indicators : {' '.join(ti_values.ti_count.keys())}")
+    print(f"Total number of comments : {output_ti[1]}")
+    print(f"Total number of comments w/ tone indicators: {output_ti[2]}")
+    print(f"Total number of tone indicators: {output_ti[3]}")
+
+    for i in range(4, len(output_ti)):
+        print(f"Comments with {output_sheets['General statistics'][0][i]} : {output_sheets['General statistics'][1][i]}")
+
+    pyexcel.Book(output_sheets).save_as(f"{username}_ti_stats.xlsx")
 
 
 if __name__ == "__main__":
