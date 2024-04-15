@@ -16,8 +16,6 @@ def get_ti_info_about_user(username, headers, params):
 
     ti_count.update(ti_values.ti_count)
 
-    print(ti_count.keys())
-
     match_ti = "/(" + "|".join(ti_values.ti_count.keys()) + ")($| )"
 
     output_sheet = [
@@ -65,9 +63,11 @@ def get_ti_info_about_user(username, headers, params):
                     )
 
         if next_page is None:
+
             break
         params['after'] = next_page
 
+    params.pop('after')
     output_ti = [username]
     output_ti += list(ti_count.values())
 
@@ -99,27 +99,6 @@ def main():
     token = res.json()['access_token']
     headers = {**headers, **{'Authorization': f"bearer {token}"}}
 
-    # Input the username
-    username = input("Please enter the user you wish to research : ")
-    res = requests.get(
-        f"https://oauth.reddit.com/user/{username}/about",
-        headers=headers,
-        params=params,
-        timeout=10
-    )
-
-    while res.status_code != 200:
-        print("ERROR : Invalid username")
-        username = input("Please enter the user you wish to research : ")
-        res = requests.get(
-            f"https://oauth.reddit.com/user/{username}/about",
-            headers=headers,
-            params=params,
-            timeout=10
-        )
-
-    print(f"user u/{username} found : collecting comments...")
-
     output_sheets = {
         "General statistics":
             [
@@ -134,20 +113,38 @@ def main():
 
     output_sheets["General statistics"][0] += list(ti_values.ti_count.keys())
 
-    output_sheet, output_ti = get_ti_info_about_user(username, headers, params)
+    # Input the username
+    searched_usernames = input("Please enter the users (seperated by commas) you wish to research : ")
+    searched_usernames = searched_usernames.split(",")
 
-    output_sheets["General statistics"].append(output_ti)
-    output_sheets[username] = output_sheet
+    for username in searched_usernames:
+        res = requests.get(
+            f"https://oauth.reddit.com/user/{username}/about",
+            headers=headers,
+            params=params,
+            timeout=10
+        )
 
-    print(f"Searched tone indicators : {' '.join(ti_values.ti_count.keys())}")
-    print(f"Total number of comments : {output_ti[1]}")
-    print(f"Total number of comments w/ tone indicators: {output_ti[2]}")
-    print(f"Total number of tone indicators: {output_ti[3]}")
+        if res.status_code != 200:
+            print(f"User u/{username} not found...")
+            continue
 
-    for i in range(4, len(output_ti)):
-        print(f"Comments with {output_sheets['General statistics'][0][i]} : {output_sheets['General statistics'][1][i]}")
+        print(f"user u/{username} found : collecting comments...")
 
-    pyexcel.Book(output_sheets).save_as(f"{username}_ti_stats.xlsx")
+        output_sheet, output_ti = get_ti_info_about_user(username, headers, params)
+
+        output_sheets["General statistics"].append(output_ti)
+        output_sheets[username] = output_sheet
+
+        print(f"Searched tone indicators : {' '.join(ti_values.ti_count.keys())}")
+        print(f"Total number of comments : {output_ti[1]}")
+        print(f"Total number of comments w/ tone indicators: {output_ti[2]}")
+        print(f"Total number of tone indicators: {output_ti[3]}")
+
+        for i in range(4, len(output_ti)):
+            print(f"Comments with {output_sheets['General statistics'][0][i]} : {output_sheets['General statistics'][1][i]}")
+
+    pyexcel.Book(output_sheets).save_as("ti_stats.xlsx")
 
 
 if __name__ == "__main__":

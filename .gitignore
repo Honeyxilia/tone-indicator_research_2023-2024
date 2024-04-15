@@ -160,4 +160,4 @@ cython_debug/
 .idea/
 
 auth_file_project.py
-*.xls
+*.xls*
